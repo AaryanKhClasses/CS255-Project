@@ -48,4 +48,15 @@ app.post('/add', async(req, res) => {
     }
 })
 
+app.get('/get', async(req, res) => {
+    try {
+        const sql = `SELECT * FROM Expenses ORDER BY expenseDate DESC`
+        const [rows] = await db.promise().query(sql)
+        res.json(rows)
+    } catch(err) {
+        console.error(err)
+        res.status(500).json({ message: 'Internal Server Error' })
+    }
+})
+
 app.listen(3001, () => console.log('Server running on http://localhost:3001'))
