@@ -17,7 +17,8 @@ export default function App() {
     const [amount, setAmount] = useState<number>(0)
     const [currentTab, setCurrentTab] = useState<'table' | 'chart'>('table')
     const [expenses, setExpenses] = useState<Expense[]>([])
-    const [maxExpense, setMaxExpense] = useState<number>(0)
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+    const [mousePos, setMousePos] = useState<{ x: number, y: number }>({ x: 0, y: 0 })
 
     const handleAddExpense = async () => {
         if(!date || name == '' || amount <= 0) return alert('Please Fill In the Details...')
@@ -55,14 +56,23 @@ export default function App() {
             }
         }
         fetchExpenses()
-    }, [expenses])
+    }, [])
 
-    useEffect(() => {
-        if(expenses.length > 0) {
-            const max = Math.max(...expenses.map(e => e.amount))
-            setMaxExpense(max)
-        }
-    }, [expenses])
+    const chartData = Object.values(
+        expenses.reduce((acc, e) => {
+            const date = new Date(e.expenseDate).toLocaleDateString()
+            if(!acc[date]) acc[date] = {
+                rawDate: new Date(e.expenseDate),
+                date,
+                amount: 0
+            }
+
+            acc[date].amount += e.amount
+            return acc
+        }, { } as Record<string, { rawDate: Date, date: string, amount: number }>)
+    ).sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
+    
+    const maxExpense = Math.max(...chartData.map(d => d.amount), 0)
 
     return <div className="absolute top-0 z-[-2] text-center w-screen text-white bg-neutral-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
         {/* Hero Section */}
@@ -94,7 +104,7 @@ export default function App() {
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="w-[90%] max-w-300 bg-linear-to-br from-[rgba(120,119,198,0.2)] to-[rgba(120,119,198,0.05)] backdrop-blur-sm border border-[#ffffff20] rounded-2xl p-8 shadow-2xl"
+                className="w-[80vw] bg-linear-to-br from-[rgba(120,119,198,0.2)] to-[rgba(120,119,198,0.05)] backdrop-blur-sm border border-[#ffffff20] rounded-2xl p-8 shadow-2xl"
             >
                 <h1 className="text-3xl font-bold mb-8 text-white text-center">Add New Expense</h1>
                 <div className="flex flex-col gap-6">
@@ -127,7 +137,7 @@ export default function App() {
                     <div className="flex flex-col gap-2">
                         <label htmlFor="newExpenseAmount" className="text-left font-medium text-[#ffffffcc]">Amount</label>
                         <div className="relative">
-                            <span className="absolute left-4 top-3 text-white font-semibold pointer-events-none">$</span>
+                            <span className="absolute left-4 top-3 text-white font-semibold pointer-events-none">&#8377;</span>
                             <input
                                 type="number"
                                 value={amount == 0 ? '' : amount}
@@ -155,9 +165,7 @@ export default function App() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         className="w-full bg-linear-to-r from-[#7877c6] to-[#6b6ab8] hover:from-[#8a89d4] hover:to-[#7d7cc5] text-white font-semibold py-3 rounded-lg cursor-pointer mt-2 transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                        Add Expense
-                    </motion.button>
+                    >Add Expense</motion.button>
                 </div>
             </motion.div>
         </div>
@@ -166,25 +174,26 @@ export default function App() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="flex flex-col items-center py-12 h-screen gap-6 mx-auto"
+            className="flex flex-col items-center mt-12 py-12 h-screen gap-6 w-[80vw] mx-auto bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl shadow-2xl"
         >
-            <h1 className="text-3xl font-bold mb-8 text-white text-center">View Expense History</h1>
-            <div className="flex gap-4 w-[90%] bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-2 shadow-2xl">
+            <h1 className="text-3xl font-bold text-white text-center">View Expense History</h1>
+            <div className="flex gap-4 w-[90%] p-2">
                 <button
                     onClick={() => setCurrentTab('table')}
                     className={`w-full px-4 py-2 cursor-pointer rounded-lg transition-all duration-200 ${currentTab === 'table' ? 'bg-[#7877c6] text-white' : 'bg-[rgba(255,255,255,0.08)] text-[#ffffffcc] hover:bg-[rgba(255,255,255,0.12)]'}`}
-                >
-                    Table
-                </button>
+                >Table</button>
                 <button
                     onClick={() => setCurrentTab('chart')}
                     className={`w-full px-4 py-2 cursor-pointer rounded-lg transition-all duration-200 ${currentTab === 'chart' ? 'bg-[#7877c6] text-white' : 'bg-[rgba(255,255,255,0.08)] text-[#ffffffcc] hover:bg-[rgba(255,255,255,0.12)]'}`}
-                >
-                    Charts
-                </button>
+                >Chart</button>
             </div>
             {currentTab === 'table' ? <div className="w-full flex items-center justify-center">
-                <table className="w-[90%] bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-4 shadow-2xl mx-auto">
+                <motion.table
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="w-[90%] bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-4 shadow-2xl mx-auto"
+                >
                     <thead>
                         <tr>
                             <th className="text-center p-2 border-b border-[#ffffff20]">Date</th>
@@ -195,27 +204,97 @@ export default function App() {
                     </thead>
                     <tbody className="bg-[rgba(255,255,255,0.04)]">
                         {expenses.length === 0 ? <tr>
-                            <td colSpan={4} className="p-2 border-b border-[#ffffff20] text-center">
+                            <td colSpan={4} className="p-2 h-[40vh] border-b border-[#ffffff20] text-center">
                                 No expenses found.
                             </td>
-                        </tr> : expenses.map(expense => <tr key={expense.id}>
+                        </tr> : expenses.map(expense => <tr key={expense.id} className="hover:bg-[rgba(255,255,255,0.08)] transition-colors duration-200 cursor-pointer">
                             <td className="p-2 border-b border-[#ffffff20]">{new Date(expense.expenseDate).toLocaleDateString()}</td>
                             <td className="p-2 border-b border-[#ffffff20]">{expense.name}</td>
-                            <td className="p-2 border-b border-[#ffffff20]">${expense.amount.toFixed(2)}</td>
+                            <td className="p-2 border-b border-[#ffffff20]">&#8377; {expense.amount.toFixed(2)}</td>
                             <td className="p-2 border-b border-[#ffffff20]">{expense.remarks}</td>
                         </tr>)}
                     </tbody>
-                </table>
+                </motion.table>
             </div> : <div className="w-full flex items-center justify-center">
-                
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="relative w-[90%] h-[70vh] bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-4 shadow-2xl mx-auto flex items-end gap-4"
+                >
+                    {chartData.length === 0 ? <div className="p-2 h-[40vh] border-b border-[#ffffff20] text-center w-full">
+                        No expenses found.
+                    </div> : <svg width="100%" height="100%" viewBox="0 0 800 400"
+                        onMouseMove={e => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            const x = e.clientX - rect.left
+                            const y = e.clientY - rect.top
+                            setMousePos({ x, y })
+
+                            const relativeX = (x - 50) / 700
+                            const index = Math.round(relativeX * (chartData.length - 1))
+                            if(index >= 0 && index < chartData.length) setHoveredIndex(index)
+                            else setHoveredIndex(null)
+                        }}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                    >
+                        <line x1="50" y1="350" x2="750" y2="350" stroke="#ffffff80" strokeWidth="2" />
+                        <line x1="50" y1="0" x2="50" y2="350" stroke="#ffffff80" strokeWidth="2" />
+                        
+                        <polyline fill="none" stroke="#7877c6" strokeWidth="3" points={chartData.map((d, i) => {
+                            const x = 50 + (i / (chartData.length - 1 || 1)) * 700
+                            const y = 350 - (d.amount / (maxExpense || 1)) * 300
+                            return `${x},${y}`
+                        }).join(' ')} />
+
+                        {chartData.map((d, i) => {
+                            const x = 50 + (i / (chartData.length - 1 || 1)) * 700
+                            const y = 350 - (d.amount / (maxExpense || 1)) * 300
+                            return <circle key={i} cx={x} cy={y} r={hoveredIndex === i ? 8 : 5} fill="#7877c6" style={{ cursor: 'pointer' }} className="transition-all duration-200 ease-in-out" />
+                        })}
+
+                        {chartData.map((d, i) => {
+                            const x = 50 + (i / (chartData.length - 1 || 1)) * 700
+                            return <text key={i} x={x} y={370} fontSize="10" fill="#ffffffcc" textAnchor="middle">{d.date}</text>
+                        })}
+
+                        {Array.from({ length: 5 }).map((_, i) => {
+                            const ratio = i / 4
+                            const y = 350 - ratio * 300
+                            const value = Math.round(ratio * maxExpense)
+                            return <g key={i}>
+                                <line x1="50" y1={y} x2="750" y2={y} stroke="#ffffff20" strokeWidth="1" />
+                                <text x={40} y={y + 5} fontSize="10" fill="#ffffffcc" textAnchor="end">&#8377; {value.toLocaleString()}</text>
+                            </g>
+                        })}
+
+                        {hoveredIndex !== null && <line
+                            x1={50 + (hoveredIndex / (chartData.length - 1 || 1)) * 700}
+                            x2={50 + (hoveredIndex / (chartData.length - 1 || 1)) * 700}
+                            y1="50" y2="350"
+                            stroke="#ffffff50" strokeWidth="1" strokeDasharray="4 2"
+                        />}
+                    </svg>}
+                    {hoveredIndex !== null && (() => {
+                        const d = chartData[hoveredIndex]
+                        return <div className="absolute bg-[rgba(0,0,0,0.8)] text-white text-sm px-3 py-2 rounded-lg pointer-events-none shadow-lg" style={{
+                            left: `${mousePos.x}px`,
+                            top: `${mousePos.y}px`,
+                            transform: 'translate(10px, -120%)'
+                        }}>
+                            <p className="font-bold">&#8377; {d.amount.toLocaleString()}</p>
+                            <p className="text-xs text-[#ffffff80]">{d.date}</p>
+                        </div>
+                    })()}
+                </motion.div>
             </div>}
         </motion.div>
         {/* Footer Section */}
         <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: -30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="py-6"
+            className="py-6 mt-12"
         >
             <a href="https://github.com/AaryanKhClasses" target="_blank" rel="noopener noreferrer" className="text-sm text-[#ffffff80] mb-2">&copy; 2026 AaryanKh. All rights reserved.</a>
         </motion.div>
