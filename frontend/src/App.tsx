@@ -1,302 +1,271 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
+import AuthSection from './components/AuthSection'
+import AddExpense from './components/AddExpense'
+import ExpenseTable from './components/ExpenseTable'
+import Chart from './components/Chart'
+import Footer from './components/Footer'
+import AlertModal from './components/AlertModal'
+import ExpenseDetailsModal from './components/ExpenseDetailsModal'
+import AnalyticsModal from './components/AnalyticsModal'
 
 const BACKEND_URL = 'http://localhost:3001'
+
 type Expense = {
     id: number
     name: string
     amount: number
     remarks: string
     expenseDate: string
+    category?: string
+}
+
+type ChartData = {
+    rawDate: Date
+    date: string
+    amount: number
 }
 
 export default function App() {
-    const [date, setDate] = useState<Date>(new Date())
-    const [name, setName] = useState<string>('')
-    const [remarks, setRemarks] = useState<string>('')
-    const [amount, setAmount] = useState<number>(0)
+    const [isAuthenticated, setIsAuthenticated] = useState(false)
+    const [username, setUsername] = useState('')
+    const [token, setToken] = useState<string | null>(null)
     const [currentTab, setCurrentTab] = useState<'table' | 'chart'>('table')
     const [expenses, setExpenses] = useState<Expense[]>([])
-    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-    const [mousePos, setMousePos] = useState<{ x: number, y: number }>({ x: 0, y: 0 })
+    const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
+    const [searchTerm, setSearchTerm] = useState('')
+    const [selectedCategory, setSelectedCategory] = useState('')
 
-    const handleAddExpense = async () => {
-        if(!date || name == '' || amount <= 0) return alert('Please Fill In the Details...')
+    const [showAlertModal, setShowAlertModal] = useState(false)
+    const [alertData, setAlertData] = useState<{ title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' }>({ title: '', message: '', type: 'info' })
+    const [showDetailsModal, setShowDetailsModal] = useState(false)
+    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
+    const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
+
+    useEffect(() => {
+        const savedToken = localStorage.getItem('token')
+        const savedUsername = localStorage.getItem('username')
+        if(savedToken && savedUsername) {
+            setToken(savedToken)
+            setUsername(savedUsername)
+            setIsAuthenticated(true)
+            fetchExpenses(savedToken)
+        }
+    }, [])
+
+    useEffect(() => {
+        let filtered = expenses
+        if(searchTerm) {
+            filtered = filtered.filter(e => 
+                e.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+        }
+        if(selectedCategory) filtered = filtered.filter(e => e.category === selectedCategory)
+        setFilteredExpenses(filtered)
+    }, [expenses, searchTerm, selectedCategory])
+
+    const fetchExpenses = async(authToken: string) => {
+        try {
+            const res = await fetch(BACKEND_URL + '/get', {
+                headers: { Authorization: `Bearer ${authToken}` }
+            })
+            if(!res.ok) throw new Error('Failed to fetch expenses')
+            const data = await res.json()
+            setExpenses(data.data)
+        } catch(err) {
+            console.error(err)
+            showAlert('Error', 'Failed to load expenses', 'error')
+        }
+    }
+
+    const handleAuth = async(username: string, email: string, password: string, isSignup: boolean) => {
+        try {
+            const endpoint = isSignup ? '/auth/signup' : '/auth/login'
+            const body = isSignup  ? { username, email, password } : { username, password }
+
+            const res = await fetch(BACKEND_URL + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+
+            const data = await res.json()
+            if(!res.ok) return showAlert('Error', data.message || 'Authentication failed', 'error')
+
+            if(isSignup) return showAlert('Success', 'Account created! Please login.', 'success')
+            setToken(data.token)
+            setUsername(username)
+            setIsAuthenticated(true)
+            localStorage.setItem('token', data.token)
+            localStorage.setItem('username', username)
+            fetchExpenses(data.token)
+            showAlert('Success', 'Login successful!', 'success')
+        } catch(err) {
+            console.error(err)
+            showAlert('Error', 'Something went wrong', 'error')
+        }
+    }
+
+    const handleAddExpense = async(data: any) => {
+        if(!token) return
         try {
             const res = await fetch(BACKEND_URL + '/add', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    date: date.toISOString(),
-                    name, remarks, amount
+                    date: data.date.toISOString(),
+                    name: data.name,
+                    remarks: data.remarks,
+                    amount: data.amount,
+                    category: data.category
                 })
             })
-            if(!res.ok) throw new Error('Something went wrong.')
-            alert('Expense Successfully Added.')
-            setName('')
-            setRemarks('')
-            setAmount(0)
+
+            if(!res.ok) throw new Error('Failed to add expense')
+
+            showAlert('Success', 'Expense added successfully!', 'success')
+            fetchExpenses(token)
         } catch(err) {
             console.error(err)
-            alert('Failed to Add Expense. Something went wrong...')
+            showAlert('Error', 'Failed to add expense', 'error')
         }
     }
 
-    useEffect(() => {
-        const fetchExpenses = async() => {
-            try {
-                const res = await fetch(BACKEND_URL + '/get')
-                if(!res.ok) throw new Error('Failed to fetch expenses.')
-                const data = await res.json()
-                setExpenses(data)
-            } catch(err) {
-                console.error(err)
-            }
+    const handleDeleteExpense = async(id: number) => {
+        if(!token) return
+        try {
+            const res = await fetch(BACKEND_URL + `/expense/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            })
+
+            if(!res.ok) throw new Error('Failed to delete expense')
+            
+            showAlert('Success', 'Expense deleted successfully!', 'success')
+            fetchExpenses(token)
+        } catch(err) {
+            console.error(err)
+            showAlert('Error', 'Failed to delete expense', 'error')
         }
-        fetchExpenses()
-    }, [])
+    }
 
-    const chartData = Object.values(
-        expenses.reduce((acc, e) => {
-            const date = new Date(e.expenseDate).toLocaleDateString()
-            if(!acc[date]) acc[date] = {
-                rawDate: new Date(e.expenseDate),
-                date,
-                amount: 0
-            }
+    const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+        setAlertData({ title, message, type })
+        setShowAlertModal(true)
+    }
 
-            acc[date].amount += e.amount
-            return acc
-        }, { } as Record<string, { rawDate: Date, date: string, amount: number }>)
-    ).sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
-    
-    const maxExpense = Math.max(...chartData.map(d => d.amount), 0)
+    const handleLogout = () => {
+        setIsAuthenticated(false)
+        setToken(null)
+        setUsername('')
+        setExpenses([])
+        localStorage.removeItem('token')
+        localStorage.removeItem('username')
+    }
 
-    return <div className="absolute top-0 z-[-2] text-center w-screen text-white bg-neutral-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
-        {/* Hero Section */}
-        <div className="flex flex-col justify-center h-screen w-[70vw] mx-auto">
-            <motion.h2
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.75 }}
-                className="text-[2rem] font-semibold lg:w-[50%] md:w-[60%] sm:w-[70%] self-center pb-5"
-            >A Website to Track Your Expenses Efficiently!</motion.h2>
-            <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.75, delay: 0.1 }}
-                className="text-[1.2rem] md:w-[60%] sm:w-[80%] self-center text-[#ffffffef]"
-            >Experience the best expense tracking solution, completely for free, and the best part is all the data is stored securely and never compromised...</motion.p>
-            <motion.button
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.75, delay: 0.2 }}
-                className="border rounded-xl bg-white text-black cursor-pointer mt-6 p-2 w-[50%] self-center transition-colors ease-in-out"
-                onClick={() => document.getElementById('add')!.scrollIntoView({ behavior: 'smooth' })}
-            >Get Started!</motion.button>
-        </div>
+    const getChartData = (): ChartData[] => {
+        return Object.values(
+            filteredExpenses.reduce((acc, e) => {
+                const date = new Date(e.expenseDate).toLocaleDateString('en-IN')
+                if(!acc[date]) {
+                    acc[date] = {
+                        rawDate: new Date(e.expenseDate),
+                        date,
+                        amount: 0
+                    }
+                }
+                acc[date].amount += e.amount
+                return acc
+            }, {} as Record<string, ChartData>)
+        ).sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
+    }
 
-        {/* Add Expense Section */}
-        <div id="add" className="flex flex-col items-center justify-center h-screen py-12">
-            <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="w-[80vw] bg-linear-to-br from-[rgba(120,119,198,0.2)] to-[rgba(120,119,198,0.05)] backdrop-blur-sm border border-[#ffffff20] rounded-2xl p-8 shadow-2xl"
-            >
-                <h1 className="text-3xl font-bold mb-8 text-white text-center">Add New Expense</h1>
-                <div className="flex flex-col gap-6">
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="newExpenseDate" className="text-left font-medium text-[#ffffffcc]">Date</label>
-                        <input
-                            type="date"
-                            value={date.toISOString().split('T')[0]}
-                            onChange={(e) => {
-                                if(e.target.value) {
-                                    const newDate = new Date(e.target.value + 'T00:00:00')
-                                    setDate(newDate)
-                                }
-                            }}
-                            id="newExpenseDate"
-                            className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200 cursor-pointer"
-                        />
+    const getCategories = (): string[] => {
+        return [...new Set(expenses.filter(e => e.category).map(e => e.category!))]
+    }
+
+    const chartData = getChartData()
+
+    return <div className="w-screen min-h-screen text-white bg-neutral-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]">
+        {isAuthenticated && <Navbar isAuthenticated={isAuthenticated} username={username} onLogout={handleLogout} />}
+
+        <div className={isAuthenticated ? 'pt-20' : ''}>
+            <Hero isAuthenticated={isAuthenticated} />
+
+            {!isAuthenticated ? <AuthSection onAuth={handleAuth} /> : 
+            <>
+                <AddExpense onAddExpense={handleAddExpense} />
+                <div className="flex flex-col items-center py-12 gap-6 w-[80vw] mx-auto">
+                    <h1 className="text-3xl font-bold text-white text-center">View Expense History</h1>
+                    <div className="flex gap-4 w-full">
+                        <button
+                            onClick={() => setCurrentTab('table')}
+                            className={`flex-1 px-4 py-3 cursor-pointer rounded-lg transition-all duration-200 font-semibold ${
+                                currentTab === 'table'
+                                    ? 'bg-[#7877c6] text-white'
+                                    : 'bg-[rgba(255,255,255,0.08)] text-[#ffffffcc] hover:bg-[rgba(255,255,255,0.12)]'
+                            }`}
+                        >Table</button>
+                        <button
+                            onClick={() => setCurrentTab('chart')}
+                            className={`flex-1 px-4 py-3 cursor-pointer rounded-lg transition-all duration-200 font-semibold ${
+                                currentTab === 'chart'
+                                    ? 'bg-[#7877c6] text-white'
+                                    : 'bg-[rgba(255,255,255,0.08)] text-[#ffffffcc] hover:bg-[rgba(255,255,255,0.12)]'
+                            }`}
+                        >Chart</button>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="newExpenseName" className="text-left font-medium text-[#ffffffcc]">Expense Name</label>
-                        <input
-                            type="text"
-                            placeholder="e.g., Grocery Shopping"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            id="newExpenseName"
-                            className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white placeholder-[#ffffff60] px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="newExpenseAmount" className="text-left font-medium text-[#ffffffcc]">Amount</label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-3 text-white font-semibold pointer-events-none">&#8377;</span>
-                            <input
-                                type="number"
-                                value={amount == 0 ? '' : amount}
-                                onChange={(e) => setAmount(parseFloat(e.target.value))}
-                                id="newExpenseAmount"
-                                placeholder="0.00"
-                                min={0}
-                                className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white placeholder-[#ffffff60] px-4 py-3 pl-8 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="newExpenseRemarks" className="text-left font-medium text-[#ffffffcc]">Remarks <span className="text-[#ffffff80]">(Optional)</span></label>
-                        <textarea
-                            placeholder="Add any additional notes..."
-                            value={remarks}
-                            onChange={(e) => setRemarks(e.target.value)}
-                            id="newExpenseRemarks"
-                            rows={3}
-                            className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white placeholder-[#ffffff60] px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200 resize-none"
-                        />
-                    </div>
-                    <motion.button
-                        onClick={handleAddExpense}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full bg-linear-to-r from-[#7877c6] to-[#6b6ab8] hover:from-[#8a89d4] hover:to-[#7d7cc5] text-white font-semibold py-3 rounded-lg cursor-pointer mt-2 transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >Add Expense</motion.button>
-                </div>
-            </motion.div>
-        </div>
-        {/* Table OR Charts Section */}
-        <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="flex flex-col items-center mt-12 py-12 h-screen gap-6 w-[80vw] mx-auto bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl shadow-2xl"
-        >
-            <h1 className="text-3xl font-bold text-white text-center">View Expense History</h1>
-            <div className="flex gap-4 w-[90%] p-2">
-                <button
-                    onClick={() => setCurrentTab('table')}
-                    className={`w-full px-4 py-2 cursor-pointer rounded-lg transition-all duration-200 ${currentTab === 'table' ? 'bg-[#7877c6] text-white' : 'bg-[rgba(255,255,255,0.08)] text-[#ffffffcc] hover:bg-[rgba(255,255,255,0.12)]'}`}
-                >Table</button>
-                <button
-                    onClick={() => setCurrentTab('chart')}
-                    className={`w-full px-4 py-2 cursor-pointer rounded-lg transition-all duration-200 ${currentTab === 'chart' ? 'bg-[#7877c6] text-white' : 'bg-[rgba(255,255,255,0.08)] text-[#ffffffcc] hover:bg-[rgba(255,255,255,0.12)]'}`}
-                >Chart</button>
-            </div>
-            {currentTab === 'table' ? <div className="w-full flex items-center justify-center">
-                <motion.table
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className="w-[90%] bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-4 shadow-2xl mx-auto"
-                >
-                    <thead>
-                        <tr>
-                            <th className="text-center p-2 border-b border-[#ffffff20]">Date</th>
-                            <th className="text-center p-2 border-b border-[#ffffff20]">Name</th>
-                            <th className="text-center p-2 border-b border-[#ffffff20]">Amount</th>
-                            <th className="text-center p-2 border-b border-[#ffffff20]">Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-[rgba(255,255,255,0.04)]">
-                        {expenses.length === 0 ? <tr>
-                            <td colSpan={4} className="p-2 h-[40vh] border-b border-[#ffffff20] text-center">
-                                No expenses found.
-                            </td>
-                        </tr> : expenses.map(expense => <tr key={expense.id} className="hover:bg-[rgba(255,255,255,0.08)] transition-colors duration-200 cursor-pointer">
-                            <td className="p-2 border-b border-[#ffffff20]">{new Date(expense.expenseDate).toLocaleDateString()}</td>
-                            <td className="p-2 border-b border-[#ffffff20]">{expense.name}</td>
-                            <td className="p-2 border-b border-[#ffffff20]">&#8377; {expense.amount.toFixed(2)}</td>
-                            <td className="p-2 border-b border-[#ffffff20]">{expense.remarks}</td>
-                        </tr>)}
-                    </tbody>
-                </motion.table>
-            </div> : <div className="w-full flex items-center justify-center">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className="relative w-[90%] h-[70vh] bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-4 shadow-2xl mx-auto flex items-end gap-4"
-                >
-                    {chartData.length === 0 ? <div className="p-2 h-[40vh] border-b border-[#ffffff20] text-center w-full">
-                        No expenses found.
-                    </div> : <svg width="100%" height="100%" viewBox="0 0 800 400"
-                        onMouseMove={e => {
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            const x = e.clientX - rect.left
-                            const y = e.clientY - rect.top
-                            setMousePos({ x, y })
 
-                            const relativeX = (x - 50) / 700
-                            const index = Math.round(relativeX * (chartData.length - 1))
-                            if(index >= 0 && index < chartData.length) setHoveredIndex(index)
-                            else setHoveredIndex(null)
+                    {currentTab === 'table' ? <ExpenseTable
+                        expenses={filteredExpenses}
+                        onRowClick={(expense) => {
+                            setSelectedExpense(expense)
+                            setShowDetailsModal(true)
                         }}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                    >
-                        <line x1="50" y1="350" x2="750" y2="350" stroke="#ffffff80" strokeWidth="2" />
-                        <line x1="50" y1="0" x2="50" y2="350" stroke="#ffffff80" strokeWidth="2" />
-                        
-                        <polyline fill="none" stroke="#7877c6" strokeWidth="3" points={chartData.map((d, i) => {
-                            const x = 50 + (i / (chartData.length - 1 || 1)) * 700
-                            const y = 350 - (d.amount / (maxExpense || 1)) * 300
-                            return `${x},${y}`
-                        }).join(' ')} />
+                        onSearch={setSearchTerm}
+                        onFilterCategory={setSelectedCategory}
+                        categories={getCategories()}
+                    /> : <Chart 
+                        chartData={chartData}
+                        onChartClick={(date) => {
+                            const dateExpenses = filteredExpenses.filter(
+                                e => new Date(e.expenseDate).toLocaleDateString('en-IN') === date
+                            )
+                            if(dateExpenses.length > 0) {
+                                setSelectedExpense(dateExpenses[0])
+                                setShowDetailsModal(true)
+                            }
+                        }}
+                    />}
+                </div>
+                <Footer />
+            </>}
+        </div>
 
-                        {chartData.map((d, i) => {
-                            const x = 50 + (i / (chartData.length - 1 || 1)) * 700
-                            const y = 350 - (d.amount / (maxExpense || 1)) * 300
-                            return <circle key={i} cx={x} cy={y} r={hoveredIndex === i ? 8 : 5} fill="#7877c6" style={{ cursor: 'pointer' }} className="transition-all duration-200 ease-in-out" />
-                        })}
+        <AlertModal
+            isOpen={showAlertModal}
+            title={alertData.title}
+            message={alertData.message}
+            type={alertData.type}
+            onClose={() => setShowAlertModal(false)}
+        />
 
-                        {chartData.map((d, i) => {
-                            const x = 50 + (i / (chartData.length - 1 || 1)) * 700
-                            return <text key={i} x={x} y={370} fontSize="10" fill="#ffffffcc" textAnchor="middle">{d.date}</text>
-                        })}
+        <ExpenseDetailsModal
+            isOpen={showDetailsModal}
+            expense={selectedExpense}
+            onClose={() => setShowDetailsModal(false)}
+            onDelete={handleDeleteExpense}
+        />
 
-                        {Array.from({ length: 5 }).map((_, i) => {
-                            const ratio = i / 4
-                            const y = 350 - ratio * 300
-                            const value = Math.round(ratio * maxExpense)
-                            return <g key={i}>
-                                <line x1="50" y1={y} x2="750" y2={y} stroke="#ffffff20" strokeWidth="1" />
-                                <text x={40} y={y + 5} fontSize="10" fill="#ffffffcc" textAnchor="end">&#8377; {value.toLocaleString()}</text>
-                            </g>
-                        })}
-
-                        {hoveredIndex !== null && <line
-                            x1={50 + (hoveredIndex / (chartData.length - 1 || 1)) * 700}
-                            x2={50 + (hoveredIndex / (chartData.length - 1 || 1)) * 700}
-                            y1="50" y2="350"
-                            stroke="#ffffff50" strokeWidth="1" strokeDasharray="4 2"
-                        />}
-                    </svg>}
-                    {hoveredIndex !== null && (() => {
-                        const d = chartData[hoveredIndex]
-                        return <div className="absolute bg-[rgba(0,0,0,0.8)] text-white text-sm px-3 py-2 rounded-lg pointer-events-none shadow-lg" style={{
-                            left: `${mousePos.x}px`,
-                            top: `${mousePos.y}px`,
-                            transform: 'translate(10px, -120%)'
-                        }}>
-                            <p className="font-bold">&#8377; {d.amount.toLocaleString()}</p>
-                            <p className="text-xs text-[#ffffff80]">{d.date}</p>
-                        </div>
-                    })()}
-                </motion.div>
-            </div>}
-        </motion.div>
-        {/* Footer Section */}
-        <motion.div
-            initial={{ opacity: 0, y: -30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="py-6 mt-12"
-        >
-            <a href="https://github.com/AaryanKhClasses" target="_blank" rel="noopener noreferrer" className="text-sm text-[#ffffff80] mb-2">&copy; 2026 AaryanKh. All rights reserved.</a>
-        </motion.div>
+        <AnalyticsModal
+            isOpen={showAnalyticsModal}
+            onClose={() => setShowAnalyticsModal(false)}
+            token={token}
+            backendURL={BACKEND_URL}
+        />
     </div>
 }
