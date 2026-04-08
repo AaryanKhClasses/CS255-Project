@@ -100,21 +100,82 @@ app.post('/auth/login', async(req, res) => {
     }
 })
 
-app.post('/add', verifyToken, async(req, res) => {
+app.get('/categories', verifyToken, async(req, res) => {
     try {
-        const { date, name, remarks, amount, category, tags } = req.body
-        const sql = `
-            INSERT INTO Expenses(name, amount, remarks, expenseDate, userID, category, tags)
-            VALUES(?, ?, ?, ?, ?, ?, ?)
-        `
-        const values = [name, amount, remarks, new Date(date), req.userId, category || null, tags || null]
+        const userId = req.userId
+        const sql = 'SELECT id, name FROM Category WHERE userID = ? ORDER BY name ASC'
         
-        db.query(sql, values, (err: any) => {
+        db.query(sql, [userId], (err: any, rows: any) => {
+            if(err) return res.status(500).json({ message: 'Database error' })
+            res.json(rows || [])
+        })
+    } catch(err) {
+        console.error(err)
+        res.status(500).json({ message: 'Internal Server Error' })
+    }
+})
+
+app.post('/categories', verifyToken, async(req, res) => {
+    try {
+        const userId = req.userId
+        const { name } = req.body
+        
+        if(!name || name.trim() === '') return res.status(400).json({ message: 'Category name is required' })
+
+        const sql = 'INSERT INTO Category(userID, name) VALUES(?, ?)'
+        
+        db.query(sql, [userId, name.trim()], (err: any, result: any) => {
             if(err) {
                 console.error(err)
-                return res.status(500).json({ message: 'Internal Server Error' })
+                if(err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Category with this name already exists' })
+                return res.status(500).json({ message: 'Error creating category' })
             }
-            res.status(201).json({ message: 'Successful' })
+            res.status(201).json({ id: result.insertId, name: name.trim(), message: 'Category created successfully' })
+        })
+    } catch(err) {
+        console.error(err)
+        res.status(500).json({ message: 'Internal Server Error' })
+    }
+})
+
+app.post('/add', verifyToken, async(req, res) => {
+    try {
+        const userId = req.userId
+        if(!userId) return res.status(401).json({ message: 'User ID not found in token' })
+
+        const { date, name, remarks, amount, categoryId, tags } = req.body
+        
+        const userCheckSql = 'SELECT id FROM User WHERE id = ?'
+        db.query(userCheckSql, [userId], (err: any, userResults: any) => {
+            if(err) return res.status(500).json({ message: 'Database error' })
+            if(!userResults || userResults.length === 0) return res.status(401).json({ message: 'User not found' })
+
+            const sql = `
+                INSERT INTO Expenses(name, amount, remarks, expenseDate, userID, categoryId)
+                VALUES(?, ?, ?, ?, ?, ?)
+            `
+            const values = [name, amount, remarks, new Date(date), userId, categoryId || null]
+            
+            db.query(sql, values, (err: any, result: any) => {
+                if(err) {
+                    console.error(err)
+                    return res.status(500).json({ message: 'Database error while adding expense' })
+                }
+                
+                const expenseId = result.insertId
+                if(tags && Array.isArray(tags) && tags.length > 0) {
+                    const tagInsertSql = `INSERT INTO ExpenseTags(expenseId, tagId) VALUES(?, ?)`
+                    let tagsInserted = 0
+                    
+                    tags.forEach((tagId: number) => {
+                        db.query(tagInsertSql, [expenseId, tagId], (err: any) => {
+                            if(err) console.error('Error inserting tag:', err)
+                            tagsInserted++
+                            if(tagsInserted === tags.length) res.status(201).json({ message: 'Successful', expenseId })
+                        })
+                    })
+                } else res.status(201).json({ message: 'Successful', expenseId })
+            })
         })
     } catch(err) {
         console.error(err)
@@ -124,38 +185,47 @@ app.post('/add', verifyToken, async(req, res) => {
 
 app.get('/get', verifyToken, async(req, res) => {
     try {
-        const { page = 1, limit = 50, search = '', category = '', startDate = '', endDate = '' } = req.query
+        const { page = 1, limit = 50, search = '', categoryId = '', startDate = '', endDate = '' } = req.query
         const offset = (Number(page) - 1) * Number(limit)
         
-        let sql = `SELECT * FROM Expenses WHERE userID = ?`
-        let countSql = `SELECT COUNT(*) as total FROM Expenses WHERE userID = ?`
+        let sql = `SELECT DISTINCT e.*, c.name as categoryName, GROUP_CONCAT(DISTINCT t.id) as tagIds, GROUP_CONCAT(DISTINCT t.name) as tagNames 
+                   FROM Expenses e
+                   LEFT JOIN Category c ON e.categoryId = c.id
+                   LEFT JOIN ExpenseTags et ON e.id = et.expenseId
+                   LEFT JOIN Tags t ON et.tagId = t.id
+                   WHERE e.userID = ?`
+        let countSql = `SELECT COUNT(DISTINCT e.id) as total FROM Expenses e 
+                        LEFT JOIN Category c ON e.categoryId = c.id
+                        LEFT JOIN ExpenseTags et ON e.id = et.expenseId
+                        LEFT JOIN Tags t ON et.tagId = t.id
+                        WHERE e.userID = ?`
         const params: any[] = [req.userId]
 
         if(search) {
-            sql += ` AND name LIKE ?`
-            countSql += ` AND name LIKE ?`
+            sql += ` AND e.name LIKE ?`
+            countSql += ` AND e.name LIKE ?`
             params.push(`%${search}%`)
         }
 
-        if(category) {
-            sql += ` AND category = ?`
-            countSql += ` AND category = ?`
-            params.push(category)
+        if(categoryId) {
+            sql += ` AND e.categoryId = ?`
+            countSql += ` AND e.categoryId = ?`
+            params.push(categoryId)
         }
 
         if(startDate) {
-            sql += ` AND expenseDate >= ?`
-            countSql += ` AND expenseDate >= ?`
+            sql += ` AND e.expenseDate >= ?`
+            countSql += ` AND e.expenseDate >= ?`
             params.push(startDate)
         }
 
         if(endDate) {
-            sql += ` AND expenseDate <= ?`
-            countSql += ` AND expenseDate <= ?`
+            sql += ` AND e.expenseDate <= ?`
+            countSql += ` AND e.expenseDate <= ?`
             params.push(endDate)
         }
 
-        sql += ` ORDER BY expenseDate DESC LIMIT ? OFFSET ?`
+        sql += ` GROUP BY e.id ORDER BY e.expenseDate DESC LIMIT ? OFFSET ?`
         params.push(Number(limit), offset)
 
         db.query(countSql, params.slice(0, -2), (err: any, countResults: any) => {
@@ -163,8 +233,15 @@ app.get('/get', verifyToken, async(req, res) => {
 
             db.query(sql, params, (err: any, rows: any) => {
                 if(err) return res.status(500).json({ message: 'Database error' })
+                
+                const formattedRows = rows.map((row: any) => ({
+                    ...row,
+                    tags: row.tagNames ? row.tagNames.split(',') : [],
+                    tagIds: row.tagIds ? row.tagIds.split(',').map(Number) : []
+                }))
+                
                 res.json({
-                    data: rows,
+                    data: formattedRows,
                     total: countResults[0].total,
                     page: Number(page),
                     limit: Number(limit)

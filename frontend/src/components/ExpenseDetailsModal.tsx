@@ -6,7 +6,8 @@ type Expense = {
     amount: number
     remarks: string
     expenseDate: string
-    category?: string
+    categoryId?: number
+    categoryName?: string
 }
 
 type ExpenseDetailsModalProps = {
@@ -30,7 +31,7 @@ export default function ExpenseDetailsModal({ isOpen, expense, onClose, onDelete
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
             onClick={onClose}
         >
             <motion.div
@@ -38,7 +39,7 @@ export default function ExpenseDetailsModal({ isOpen, expense, onClose, onDelete
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-[rgba(255,255,255,0.08)] border border-[#ffffff20] rounded-2xl p-8 max-w-md w-full mx-4"
+                className="bg-black/80 border border-[#ffffff20] rounded-2xl p-8 max-w-md w-full mx-4"
             >
                 <h2 className="text-2xl font-bold text-white mb-6">{expense.name}</h2>
                 
@@ -53,9 +54,9 @@ export default function ExpenseDetailsModal({ isOpen, expense, onClose, onDelete
                         <p className="text-white">{formattedDate}</p>
                     </div>
                     
-                    {expense.category && <div>
+                    {expense.categoryName && <div>
                         <p className="text-[#ffffffcc] text-sm">Category</p>
-                        <p className="text-white">{expense.category}</p>
+                        <p className="text-white">{expense.categoryName}</p>
                     </div>}
                     
                     {expense.remarks && <div>
@@ -67,14 +68,14 @@ export default function ExpenseDetailsModal({ isOpen, expense, onClose, onDelete
                 <div className="flex gap-3">
                     <button
                         onClick={onClose}
-                        className="flex-1 bg-[#7877c6] hover:bg-[#8a89d4] text-white font-semibold py-2 rounded-lg transition-all duration-200"
+                        className="flex-1 cursor-pointer bg-[#7877c6] hover:bg-[#8a89d4] text-white font-semibold py-2 rounded-lg transition-all duration-200"
                     >Close</button>
                     <button
                         onClick={() => {
                             onDelete(expense.id)
                             onClose()
                         }}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-all duration-200"
+                        className="flex-1 cursor-pointer bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-all duration-200"
                     >Delete</button>
                 </div>
             </motion.div>

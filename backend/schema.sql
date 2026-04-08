@@ -6,6 +6,15 @@ CREATE TABLE IF NOT EXISTS User(
     createdAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS Category(
+    id              INT PRIMARY KEY AUTO_INCREMENT,
+    userID          INT NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    createdAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (userID) REFERENCES User(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_category (userID, name)
+);
+
 CREATE TABLE IF NOT EXISTS Expenses(
     id              INT PRIMARY KEY AUTO_INCREMENT,
     name            TEXT NOT NULL,
@@ -13,18 +22,10 @@ CREATE TABLE IF NOT EXISTS Expenses(
     remarks         TEXT,
     expenseDate     DATE NOT NULL,
     userID          INT NOT NULL,
-    category        VARCHAR(100),
-    tags            VARCHAR(255),
+    categoryId      INT,
     createdAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (userID) REFERENCES User(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS Category(
-    id              INT PRIMARY KEY AUTO_INCREMENT,
-    userID          INT NOT NULL,
-    name            VARCHAR(100) NOT NULL,
-    createdAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (userID) REFERENCES User(id) ON DELETE CASCADE
+    FOREIGN KEY (userID) REFERENCES User(id) ON DELETE CASCADE,
+    FOREIGN KEY (categoryId) REFERENCES Category(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS Tags(
@@ -33,4 +34,13 @@ CREATE TABLE IF NOT EXISTS Tags(
     name            VARCHAR(100) NOT NULL,
     createdAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (userID) REFERENCES User(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ExpenseTags(
+    id              INT PRIMARY KEY AUTO_INCREMENT,
+    expenseId       INT NOT NULL,
+    tagId           INT NOT NULL,
+    FOREIGN KEY (expenseId) REFERENCES Expenses(id) ON DELETE CASCADE,
+    FOREIGN KEY (tagId) REFERENCES Tags(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_expense_tag (expenseId, tagId)
 );

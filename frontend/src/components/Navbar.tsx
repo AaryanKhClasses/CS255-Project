@@ -17,10 +17,7 @@ export default function Navbar({ isAuthenticated, username, onLogout }: NavbarPr
             
             {isAuthenticated && <div className="flex items-center gap-4">
                 <span className="text-[#ffffffcc]">Welcome, {username}</span>
-                <button
-                    onClick={onLogout}
-                    className="px-4 py-2 cursor-pointer bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200"
-                >Logout</button>
+                <span onClick={onLogout} className="cursor-pointer text-red-400 hover:text-red-500 transition-all duration-200">Logout</span>
             </div>}
         </div>
     </motion.nav>

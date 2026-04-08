@@ -7,7 +7,8 @@ type Expense = {
     amount: number
     remarks: string
     expenseDate: string
-    category?: string
+    categoryId?: number
+    categoryName?: string
 }
 
 type ExpenseTableProps = {
@@ -57,9 +58,9 @@ export default function ExpenseTable({
                 onChange={(e) => handleCategoryFilter(e.target.value)}
                 className="bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
             >
-                <option value="">All Categories</option>
+                <option value="" className="bg-[#1e1e1e] text-white">All Categories</option>
                 {categories.map((cat) => (
-                    <option key={cat} value={cat}>
+                    <option key={cat} value={cat} className="bg-[#1e1e1e] text-white">
                         {cat}
                     </option>
                 ))}
@@ -95,7 +96,7 @@ export default function ExpenseTable({
                             {new Date(expense.expenseDate).toLocaleDateString()}
                         </td>
                         <td className="p-4 text-white">{expense.name}</td>
-                        <td className="p-4 text-[#ffffffcc]">{expense.category || '-'}</td>
+                        <td className="p-4 text-[#ffffffcc]">{expense.categoryName || '-'}</td>
                         <td className="p-4 text-right text-[#7877c6] font-semibold">
                             &#8377; {expense.amount.toFixed(2)}
                         </td>

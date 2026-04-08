@@ -18,7 +18,10 @@ type Expense = {
     amount: number
     remarks: string
     expenseDate: string
-    category?: string
+    categoryId?: number
+    categoryName?: string
+    tags?: string[]
+    tagIds?: number[]
 }
 
 type ChartData = {
@@ -61,7 +64,7 @@ export default function App() {
                 e.name.toLowerCase().includes(searchTerm.toLowerCase())
             )
         }
-        if(selectedCategory) filtered = filtered.filter(e => e.category === selectedCategory)
+        if(selectedCategory) filtered = filtered.filter(e => e.categoryName === selectedCategory)
         setFilteredExpenses(filtered)
     }, [expenses, searchTerm, selectedCategory])
 
@@ -121,7 +124,7 @@ export default function App() {
                     name: data.name,
                     remarks: data.remarks,
                     amount: data.amount,
-                    category: data.category
+                    categoryId: data.categoryId
                 })
             })
 
@@ -185,7 +188,7 @@ export default function App() {
     }
 
     const getCategories = (): string[] => {
-        return [...new Set(expenses.filter(e => e.category).map(e => e.category!))]
+        return [...new Set(expenses.filter(e => e.categoryName).map(e => e.categoryName!))]
     }
 
     const chartData = getChartData()
@@ -198,7 +201,7 @@ export default function App() {
 
             {!isAuthenticated ? <AuthSection onAuth={handleAuth} /> : 
             <>
-                <AddExpense onAddExpense={handleAddExpense} />
+                <AddExpense token={token || ''} onAddExpense={handleAddExpense} backendURL={BACKEND_URL} />
                 <div className="flex flex-col items-center py-12 gap-6 w-[80vw] mx-auto">
                     <h1 className="text-3xl font-bold text-white text-center">View Expense History</h1>
                     <div className="flex gap-4 w-full">
