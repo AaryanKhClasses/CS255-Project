@@ -56,7 +56,7 @@ export default function ExpenseTable({
             <select
                 value={selectedCategory}
                 onChange={(e) => handleCategoryFilter(e.target.value)}
-                className="bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
+                className="cursor-pointer bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
             >
                 <option value="" className="bg-[#1e1e1e] text-white">All Categories</option>
                 {categories.map((cat) => (

@@ -12,6 +12,7 @@ export default function AuthSection({ onAuth }: AuthSectionProps) {
     const [password, setPassword] = useState('')
 
     const handleSubmit = () => {
+        setIsSignup(false)
         onAuth(username, email, password, isSignup)
         setUsername('')
         setEmail('')
@@ -31,34 +32,37 @@ export default function AuthSection({ onAuth }: AuthSectionProps) {
 
             <div className="space-y-4">
                 <div>
-                    <label className="block text-[#ffffffcc] text-sm mb-2 font-medium">Username</label>
+                    <label htmlFor="username" className="block text-[#ffffffcc] text-sm mb-2 font-medium">Username</label>
                     <input
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder="Enter username"
+                        id="username"
                         className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white placeholder-[#ffffff60] px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
                     />
                 </div>
 
                 {isSignup && <div>
-                    <label className="block text-[#ffffffcc] text-sm mb-2 font-medium">Email</label>
+                    <label htmlFor="email" className="block text-[#ffffffcc] text-sm mb-2 font-medium">Email</label>
                     <input
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Enter email"
+                        id="email"
                         className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white placeholder-[#ffffff60] px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
                     />
                 </div>}
 
                 <div>
-                    <label className="block text-[#ffffffcc] text-sm mb-2 font-medium">Password</label>
+                    <label htmlFor="password" className="block text-[#ffffffcc] text-sm mb-2 font-medium">Password</label>
                     <input
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter password"
+                        id="password"
                         className="w-full bg-[rgba(255,255,255,0.08)] border border-[#ffffff30] text-white placeholder-[#ffffff60] px-4 py-3 rounded-lg focus:outline-none focus:border-[#7877c6] focus:bg-[rgba(255,255,255,0.12)] focus:ring-2 focus:ring-[#7877c650] transition-all duration-200"
                     />
                 </div>

@@ -13,7 +13,7 @@ export default function Navbar({ isAuthenticated, username, onLogout }: NavbarPr
         className="fixed top-0 w-full bg-neutral-950/80 backdrop-blur-md border-b border-[#ffffff20] z-50"
     >
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-[#7877c6]">ExpenseTracker</h1>
+            <h1 className="text-2xl font-bold text-[#7877c6] cursor-pointer" onClick={() => document.getElementById('hero')!.scrollIntoView({ behavior: 'smooth' })}>ExpenseTracker</h1>
             
             {isAuthenticated && <div className="flex items-center gap-4">
                 <span className="text-[#ffffffcc]">Welcome, {username}</span>

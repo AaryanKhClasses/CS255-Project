@@ -83,7 +83,7 @@ export default function Chart({ chartData, onChartClick }: ChartProps) {
                     textAnchor="middle"
                     fill="#ffffffaa"
                     fontSize="12"
-                >{d.date.substring(5)}</text>
+                >{d.date}</text>
             })}
 
             {Array.from({ length: 5 }).map((_, i) => {

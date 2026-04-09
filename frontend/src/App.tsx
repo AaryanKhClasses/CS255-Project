@@ -103,6 +103,7 @@ export default function App() {
             localStorage.setItem('token', data.token)
             localStorage.setItem('username', username)
             fetchExpenses(data.token)
+            document.getElementById('hero')!.scrollIntoView({ behavior: 'smooth' })
             showAlert('Success', 'Login successful!', 'success')
         } catch(err) {
             console.error(err)

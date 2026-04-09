@@ -5,7 +5,7 @@ type HeroProps = {
 }
 
 export default function Hero({ isAuthenticated }: HeroProps) {
-    return <div className="flex flex-col justify-center text-center h-screen w-[60vw] mx-auto">
+    return <div id="hero" className="flex flex-col justify-center text-center h-screen w-[60vw] mx-auto">
         <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
